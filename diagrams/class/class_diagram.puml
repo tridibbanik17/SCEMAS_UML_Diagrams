@@ -1,0 +1,63 @@
+@startuml Abstract Classes
+
+abstract class TelemetryManagement {
+  - String deviceId
+  - Date lastUpdated
+  - List<Metric> metrics
+  --
+  + {abstract} collectMetrics() : void
+  + {abstract} processData() : List<Metric>
+  + {abstract} sendTelemetry() : void
+  + getDeviceId() : String
+  + getLastUpdated() : Date
+}
+
+abstract class AccessManagement {
+  - String userId
+  - List<Role> roles
+  - Date sessionExpiry
+  --
+  + {abstract} authenticate(credentials : Credentials) : boolean
+  + {abstract} authorize(resource : String) : boolean
+  + {abstract} revokeAccess(userId : String) : void
+  + getSessionExpiry() : Date
+  + getRoles() : List<Role>
+}
+
+abstract class AlertingManagement {
+  - String alertId
+  - int severity
+  - List<Subscriber> subscribers
+  --
+  + {abstract} triggerAlert(message : String) : void
+  + {abstract} escalateAlert(alertId : String) : void
+  + {abstract} resolveAlert(alertId : String) : void
+  + getSubscribers() : List<Subscriber>
+  + getSeverity() : int
+}
+
+abstract class DataDistributionManagement {
+  - String channelId
+  - List<Endpoint> endpoints
+  - int maxRetries
+  --
+  + {abstract} distribute(data : Data) : void
+  + {abstract} subscribe(endpoint : Endpoint) : void
+  + {abstract} unsubscribe(endpoint : Endpoint) : void
+  + getEndpoints() : List<Endpoint>
+  + getChannelId() : String
+}
+
+abstract class EncryptionManagement {
+  - String algorithm
+  - int keySize
+  - Date keyExpiry
+  --
+  + {abstract} encrypt(data : byte[]) : byte[]
+  + {abstract} decrypt(data : byte[]) : byte[]
+  + {abstract} rotateKeys() : void
+  + getAlgorithm() : String
+  + getKeyExpiry() : Date
+}
+
+@enduml
