@@ -1,0 +1,23 @@
+@startuml
+title Request and Interpret Environmental Data
+
+actor UsersAndDevs
+participant "Access\nManagement" as AMC
+participant "Provide\nPublic\nAPI" as PPA
+participant "Data\nDistribution\nManagement" as DDM
+database "Analytics\nDB" as DB
+
+UsersAndDevs -> UsersAndDevs : Enter User Info
+UsersAndDevs -> AMC: Login to Account
+AMC -> AMC : Validate Account
+AMC -> PPA: Access Public API
+
+group Accessing Data
+    PPA -> DDM : Request Data
+    DDM -> DB : Retrieve Data
+    DB --> DDM : Returns Data
+    DDM --> PPA : Displays Requested Data
+    PPA --> UsersAndDevs : Interprets Data
+end
+
+@enduml
