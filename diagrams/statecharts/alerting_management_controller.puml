@@ -1,122 +1,120 @@
-@startuml alertingmanagementcontroller
+@startuml alerting_management_controller
 hide empty description
 
-'──────────────────────────────────
-' COLOR SCHEMES
-'──────────────────────────────────
 skinparam state {
-  BackgroundColor<<init>> #F2F4F4
-  BorderColor<<init>> #7F8C8D
-  FontColor<<init>> #2C3E50
+  BackgroundColor<<idle>> #F2F4F4
+  BorderColor<<idle>> #7F8C8D
+  FontColor<<idle>> #2C3E50
 
-  BackgroundColor<<define>> #FFFAD4
-  BorderColor<<define>> #F7DC6F
-  FontColor<<define>> #7D6608
+  BackgroundColor<<evaluate>> #D6EAF8
+  BorderColor<<evaluate>> #2980B9
+  FontColor<<evaluate>> #1A5276
 
-  BackgroundColor<<active>> #FDEDEC
-  BorderColor<<active>> #E74C3C
-  FontColor<<active>> #922B21
+  BackgroundColor<<alert>> #FCEAE8
+  BorderColor<<alert>> #ea9a97
+  FontColor<<alert>> #6B3A38
 
-  BackgroundColor<<notify>> #EBF5FB
-  BorderColor<<notify>> #3498DB
-  FontColor<<notify>> #1A5276
+  BackgroundColor<<dispatch>> #EDE8F5
+  BorderColor<<dispatch>> #a692c3
+  FontColor<<dispatch>> #4A3767
 
-  BackgroundColor<<subscribe>> #E8F8F5
-  BorderColor<<subscribe>> #1ABC9C
-  FontColor<<subscribe>> #0E6655
+  BackgroundColor<<lifecycle>> #D5F5E3
+  BorderColor<<lifecycle>> #27AE60
+  FontColor<<lifecycle>> #1E8449
 
-  BackgroundColor<<log>> #EAF2F8
-  BorderColor<<log>> #2471A3
-  FontColor<<log>> #154360
-
-  BackgroundColor<<error>> #FDEBD0
-  BorderColor<<error>> #E67E22
-  FontColor<<error>> #7E5109
+  BackgroundColor<<rule>> #FFF9C4
+  BorderColor<<rule>> #F9A825
+  FontColor<<rule>> #5D4037
 
   StartColor black
   EndColor black
 }
 
-'──────────────────────────────────
-' MAIN LIFECYCLE
-'──────────────────────────────────
+' ──────────────────────────────────
+' BLACKBOARD SHARED STATE
+' ──────────────────────────────────
 
-state "Initializing" as INIT <<init>> {
-  state "ConnectAlertDB" as CAD <<init>>
-  state "LoadThresholdRules" as LTR <<init>>
-  CAD --> LTR : DB connected
+state "Blackboard" as BB <<idle>> {
+  state "ActiveRules" as AR <<rule>>
+  state "ActiveAlerts" as AA <<alert>>
+  note right of AR
+    HashMap<Uuid, ThresholdRule>
+    loaded from DB on startup,
+    updated via rule CRUD
+  end note
+  note right of AA
+    HashMap<Uuid, Alert>
+    in-memory active alert tracking
+  end note
 }
 
-state "Define Threshold Rules" as DTR <<define>> {
-  state "CreateRule" as CR <<define>>
-  state "ValidateRule" as VR <<define>>
-  state "StoreRulebook" as SR <<define>>
-  CR --> VR : rule created
-  VR --> SR : valid configuration
-  SR --> CR : modify
+' ──────────────────────────────────
+' KNOWLEDGE SOURCE 1: EVALUATOR
+' ──────────────────────────────────
+
+state "Evaluator" as EVAL <<evaluate>> {
+  state "ReadActiveRules" as RAR <<evaluate>>
+  state "MatchReadingAgainstRules" as MAR <<evaluate>>
+  state "ClassifySeverity" as CS <<evaluate>>
+  state "PersistAlert" as PA <<evaluate>>
+  RAR --> MAR : rules loaded
+  MAR --> CS : threshold exceeded
+  CS --> PA : severity assigned\n(>1.5x = critical,\n>1.2x = warning,\nelse = low)
 }
 
-state "Manage Active Alerts" as MA <<active>> {
-  state "EvaluateTelemetry" as ET <<active>>
-  state "TriggerAlert" as TA <<active>>
-  state "AcknowledgeAlert" as AA <<active>>
-  state "ResolveAlert" as RA <<active>>
-  ET --> TA : threshold exceeded
-  TA --> AA : operator notified
-  AA --> RA : alert acknowledged/resolved
+' ──────────────────────────────────
+' KNOWLEDGE SOURCE 2: DISPATCHER
+' ──────────────────────────────────
+
+state "Dispatcher" as DISP <<dispatch>> {
+  state "LoadSubscriptions" as LS <<dispatch>>
+  state "FindSubscribers" as FS <<dispatch>>
+  state "RecordDispatch" as RD <<dispatch>>
+  LS --> FS : subscriptions loaded
+  FS --> RD : matching operators found
 }
 
-state "Manage Subscriptions" as MS <<subscribe>> {
-  state "LoadUserPreferences" as LUP <<subscribe>>
-  state "UpdateSubscriptions" as US <<subscribe>>
-  LUP --> US : preferences loaded
-  US --> LUP : confirmation
+' ──────────────────────────────────
+' KNOWLEDGE SOURCE 3: LIFECYCLE
+' ──────────────────────────────────
+
+state "Lifecycle" as LC <<lifecycle>> {
+  state "Triggered" as T <<alert>>
+  state "Active" as ACT <<alert>>
+  state "Acknowledged" as ACK <<lifecycle>>
+  state "Resolved" as RES <<lifecycle>>
+  T --> ACT : auto-transition
+  ACT --> ACK : operator acknowledges
+  ACT --> RES : operator resolves (direct)
+  ACK --> RES : operator resolves
 }
 
-state "Dispatch Notifications" as DN <<notify>> {
-  state "PrepareAlertMsg" as PAM <<notify>>
-  state "SendNotifications" as SN <<notify>>
-  state "HandleFailedDelivery" as HFD <<notify>>
-  PAM --> SN : alerts formatted
-  SN --> HFD : on failure
-}
-
-state "Record Logs" as RL <<log>> {
-  state "WriteAlertLog" as WAL <<log>>
-  state "WriteAuditTrail" as WAT <<log>>
-  WAL --> WAT : event recorded
-}
-
-state "Error" as ERR <<error>> {
-  state "LogFailure" as LF <<error>>
-  state "NotifyAdmin" as NA <<error>>
-  LF --> NA : error escalation
-}
-
-'──────────────────────────────────
+' ──────────────────────────────────
 ' TRANSITIONS
-'──────────────────────────────────
+' ──────────────────────────────────
 
-[*] --> INIT : controller startup
+[*] --> BB : load rules from DB on startup
 
-INIT --> DTR : initialization complete
-INIT --> ERR : DB connection failed
+BB --> EVAL : new sensor reading arrives
+EVAL --> BB : post alert to blackboard
+EVAL --> DISP : alerts created
+DISP --> BB : dispatch results logged
 
-DTR --> MA : rules defined
-MA --> DN : alert triggered
-DN --> RL : notification dispatched
-RL --> MA : alert update received
+BB --> LC : operator action on alert
+LC --> BB : alert status updated
 
-MA --> ERR : alert evaluation failure
-DTR --> ERR : invalid rule definition
-DN --> ERR : delivery failure
+MAR --> [*] : no rules violated (reading discarded)
 
-MA --> MS : user modifies subscriptions
-MS --> DTR : admin updates thresholds
-MS --> MA : return to active monitoring
+' ──────────────────────────────────
+' RULE MANAGEMENT (admin path)
+' ──────────────────────────────────
 
-RL --> [*] : all alerts archived successfully
-ERR --> INIT : recovery: reinitialize
-ERR --> [*] : unrecoverable system failure
+state "RuleManagement" as RM <<rule>> {
+  state "CreateRule" as CR <<rule>>
+  state "ToggleRuleStatus" as TRS <<rule>>
+  state "DeleteRule" as DR <<rule>>
+}
+
+RM --> BB : upsert or remove rule\nfrom blackboard
 
 @enduml
