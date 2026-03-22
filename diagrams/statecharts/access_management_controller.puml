@@ -1,116 +1,138 @@
 @startuml access_management_controller
 hide empty description
 
-skinparam state {
-  BackgroundColor<<signup>> #EDE8F5
-  BorderColor<<signup>> #a692c3
-  FontColor<<signup>> #4A3767
+' AccessManager controller statechart (repository pattern)
+' models the actual implemented auth + device management flows
 
-  BackgroundColor<<init>> #F2F4F4
-  BorderColor<<init>> #7F8C8D
-  FontColor<<init>> #2C3E50
+skinparam state {
+  BackgroundColor<<idle>> #F2F4F4
+  BorderColor<<idle>> #7F8C8D
+  FontColor<<idle>> #2C3E50
 
   BackgroundColor<<auth>> #FCEAE8
   BorderColor<<auth>> #ea9a97
   FontColor<<auth>> #6B3A38
 
-  BackgroundColor<<entry>> #D6EAF8
-  BorderColor<<entry>> #2980B9
-  FontColor<<entry>> #1A5276
+  BackgroundColor<<session>> #D6EAF8
+  BorderColor<<session>> #2980B9
+  FontColor<<session>> #1A5276
 
-  BackgroundColor<<log>> #D5F5E3
-  BorderColor<<log>> #27AE60
-  FontColor<<log>> #1E8449
+  BackgroundColor<<admin>> #EDE8F5
+  BorderColor<<admin>> #a692c3
+  FontColor<<admin>> #4A3767
+
+  BackgroundColor<<device>> #D5F5E3
+  BorderColor<<device>> #27AE60
+  FontColor<<device>> #1E8449
 
   BackgroundColor<<error>> #FDEBD0
   BorderColor<<error>> #E67E22
   FontColor<<error>> #7E5109
-  
-  BackgroundColor<<modify>> #FFCCCB
-  BorderColor<<modify>> #FF3431
-  FontColor<<modify>> #FF1111
 
   StartColor black
   EndColor black
 }
 
 ' ──────────────────────────────────
-' TOP-LEVEL LIFECYCLE
+' REPOSITORY: ACCOUNT DB
 ' ──────────────────────────────────
 
-state "Initializing" as INIT <<init>> {
-  state "ConnectDataSources" as CDS <<init>>
-  state "LoadAccountDB" as ADB <<init>>
-  CDS --> ADB : sources available
+state "Idle" as IDLE <<idle>>
+note right of IDLE
+  Server running.
+  Account DB connected.
+  Device registry loaded
+  from JSON catalog (bulk sync).
+end note
+
+' ──────────────────────────────────
+' AUTHENTICATION (signup + login)
+' ──────────────────────────────────
+
+state "SignUp" as SU <<auth>> {
+  state "CollectUserInfo" as CUI <<auth>>
+  state "HashPassword" as HP <<auth>>
+  state "StoreAccount" as SA <<auth>>
+  CUI --> HP : email, username, password
+  HP --> SA : argon2 hash
+  SA --> ISS : account created (role=operator)
 }
 
-state "EntryDashboard" as ED <<entry>>{
-  
-  state "DisplayDashboard" as DD <<entry>>
-  DD --> SU : user input
-  DD --> LOG : user input
-  
-  state "SignUp" as SU <<signup>> {
-  state "CollectUserInfo" as CUI <<signup>>
-  state "DeviceRegistry" as DR <<signup>>
-  state "StoreAccountDB" as SADB <<signup>>
-  CUI --> DR : info collected
-  DR --> SADB : device registered
-  SADB --> LOG : user registered
-  SU --> DD : returns
+state "Login" as LOG <<auth>> {
+  state "FetchByEmail" as FE <<auth>>
+  state "VerifyHash" as VH <<auth>>
+  FE --> VH : account found
 }
 
-  state "Login" as LOG <<log>> {
-  state "Authenticating" as AUTH <<log>> {
-  state "ValidateToken" as VT <<log>>
-  state "SecurityPermissions" as SP <<log>>
-  state "AuthorizeRole" as AR <<log>>
-  VT --> SP : token valid
-  SP --> AR : compare with perms
-  AR --> ST : user identified
-  LOG --> DD : returns
-  
-}
-  state "SessionToken" as ST <<log>>
+state "IssueSession" as ISS <<session>> {
+  state "SignJWT" as SJ <<session>>
+  state "PersistToken" as PT <<session>>
+  state "SetCookie" as SC <<session>>
+  SJ --> PT : HS256 + claims(sub, role, exp)
+  PT --> SC : active_session_tokens row
 }
 
+' ──────────────────────────────────
+' AUTHORIZED (role-based routing)
+' ──────────────────────────────────
+
+state "Authorized" as AUTH <<session>>
+note right of AUTH
+  Middleware validates JWT,
+  extracts role, gates routes:
+  operator -> /dashboard
+  admin -> /rules
+  viewer -> /display
+end note
+
+' ──────────────────────────────────
+' ADMIN: ACCOUNT MANAGEMENT
+' ──────────────────────────────────
+
+state "ManageAccounts" as MA <<admin>> {
+  state "UpdateDetails" as UD <<admin>>
+  state "UpdateRole" as UR <<admin>>
+  state "ResetPassword" as RP <<admin>>
+  state "RevokeSession" as RS <<admin>>
+  state "ManageApiTokens" as MAT <<admin>>
 }
 
-state "ModifyAccount" as MA <<modify>> {
-    state "UpdateUserInfo" as UUI <<modify>>
-    state "UpdateAccountDB" as UADB <<modify>>
-    state "DisplayUser" as DU <<modify>>
-    UUI --> UADB : info received
-    UADB --> DU : displays new info
-    DU --> UUI : user input
+' ──────────────────────────────────
+' ADMIN: DEVICE MANAGEMENT
+' ──────────────────────────────────
+
+state "ManageDevices" as MD <<device>> {
+  state "RegisterDevice" as RD <<device>>
+  state "UpdateDevice" as UPD <<device>>
+  state "RevokeDevice" as RVD <<device>>
+  RD : insert into devices table
+  UPD : update zone, type, status
+  RVD : set status = 'revoked'
 }
-
-
-state "Error" as ERR <<error>> {
-  state "LogFailure" as LF <<error>>
-  state "NotifyAdmin" as NA <<error>>
-  state "AttemptRecovery" as REC <<error>>
-  LF --> NA : failure logged
-  NA --> REC : admin notified
-}
-
-
 
 ' ──────────────────────────────────
 ' TRANSITIONS
 ' ──────────────────────────────────
 
-[*] --> INIT : controller startup
+[*] --> IDLE : server startup\n(sync_device_registry)
 
-INIT --> ED : initialization complete
-INIT --> ERR : data source unavailable
+IDLE --> SU : user visits /sign-up
+IDLE --> LOG : user visits /sign-in
 
-ED --> ERR : authentication failed
-ED --> MA : successful login
+SU --> ISS : account stored
+LOG --> ISS : password verified
+VH --> ISS : hash matches
 
-MA --> ERR : faulty input
+ISS --> AUTH : cookie set
 
-ERR --> INIT : recovery: reinitialize
-ERR --> [*] : unrecoverable failure
+AUTH --> MA : admin action
+AUTH --> MD : admin action
+AUTH --> IDLE : logout (clear cookie)
+
+MA --> AUTH : action complete
+MD --> AUTH : action complete
+
+LOG --> IDLE : invalid credentials\n(audit: auth.login.failure)
+SU --> IDLE : duplicate email/username\n(audit: auth.signup.failure)
 
 @enduml
