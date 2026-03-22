@@ -1,0 +1,432 @@
+@startuml class_diagram
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+
+' ─────────────────────────────────────────
+' ABSTRACT CLASSES (top row)
+' ─────────────────────────────────────────
+
+abstract class TelemetryManagement <<Abstract>> {
+  - String deviceId
+  --
+  + {abstract} collectMetrics() : void
+  + {abstract} sendTelemetry() : void
+}
+
+abstract class AccessManagement <<Abstract>> {
+  - String userId
+  --
+  + {abstract} authenticate(credentials : Credentials) : boolean
+  + {abstract} authorize(resource : String) : boolean
+}
+
+abstract class AlertingManagement <<Abstract>> {
+  - String alertId
+  - int severity
+  --
+  + {abstract} triggerAlert(message : String) : void
+  + {abstract} resolveAlert(alertId : String) : void
+}
+
+abstract class DataDistributionManagement <<Abstract>> {
+  - String channelId
+  --
+  + {abstract} distribute(data : Data) : void
+  + {abstract} subscribe(endpoint : Endpoint) : void
+  + {abstract} unsubscribe(endpoint : Endpoint) : void
+}
+
+' ─────────────────────────────────────────
+' CONCRETE CONTROLLERS
+' ─────────────────────────────────────────
+
+class TelemetryManager {
+  - String deviceId
+  --
+  + collectMetrics() : void
+  + sendTelemetry() : void
+}
+
+class AccessManager {
+  - String userId
+  --
+  + authenticate(credentials : Credentials) : boolean
+  + authorize(resource : String) : boolean
+}
+
+class AlertingManager {
+  - String alertId
+  - int severity
+  --
+  + triggerAlert(message : String) : void
+  + resolveAlert(alertId : String) : void
+}
+
+class DataDistributionManager {
+  - String channelId
+  --
+  + distribute(data : Data) : void
+  + subscribe(endpoint : Endpoint) : void
+  + unsubscribe(endpoint : Endpoint) : void
+}
+
+' ─────────────────────────────────────────
+' BOUNDARIES - TELEMETRY
+' ─────────────────────────────────────────
+
+class IngestSensorStreams {
+  + submitSensorData() : void
+}
+
+class ValidateTelemetryData {
+  + validateData() : boolean
+}
+
+class MonitorIngestionHealth {
+  + displayHealthStatus() : void
+}
+
+' ─────────────────────────────────────────
+' BOUNDARIES - ACCESS
+' ─────────────────────────────────────────
+
+class SignupForAccount {
+  + signup() : void
+}
+
+class LoginToSCEMAS {
+  + login() : boolean
+}
+
+class AuthorizeIoTDevices {
+  + authorizeDevice() : boolean
+}
+
+class ModifyAccountDetails {
+  + modifyDetails() : void
+  + handleInvalidInput() : void
+}
+
+class MonitorAccessStatus {
+  + displayActiveSessions() : void
+  + displaySecurityFlags() : void
+}
+
+class ManageSecurityPermissions {
+  + assignRole() : void
+  + modifyPermissions() : void
+}
+
+' ─────────────────────────────────────────
+' BOUNDARIES - ALERTING
+' ─────────────────────────────────────────
+
+class DefineThresholdRules {
+  + defineRule() : void
+}
+
+class HandleActiveAlerts {
+  + displayAlerts() : void
+  + acknowledgeAlert() : void
+}
+
+class DispatchAlertNotifications {
+  + dispatch() : void
+}
+
+class ManageAlertSubscriptions {
+  + configureSubscription() : void
+  + updateSubscription() : void
+}
+
+' ─────────────────────────────────────────
+' BOUNDARIES - DATA DISTRIBUTION
+' ─────────────────────────────────────────
+
+class FilterAggregatedData {
+  + filterData() : void
+}
+
+class ProvidePublicAPI {
+  + handleAPIRequest() : void
+}
+
+class VisualizeCityMetrics {
+  + displayMetrics() : void
+}
+
+class MonitorSCEMASPlatformStatus {
+  + displayPlatformHealth() : void
+  + displaySecurityStatus() : void
+}
+
+class ReportEnvironmentalHazard {
+  + submitReport() : void
+  + reviewReport() : void
+}
+
+' ─────────────────────────────────────────
+' ENTITIES
+' ─────────────────────────────────────────
+
+class IndividualSensorReading {
+  - String sensorId
+  - String metricType
+  - double value
+  - String zone
+  - Date timestamp
+}
+
+class TimeSeriesTelemetryDB {
+  - String sensorId
+  - String zone
+  - Date timestamp
+  --
+  + store(reading : IndividualSensorReading) : void
+}
+
+class AccountDB {
+  - String email
+  - String username
+  - String password
+  - String roleAssignment
+  --
+  + save(user : UserInformation) : void
+}
+
+class UserInformation {
+  - String userId
+  - String username
+  - String email
+  - String role
+}
+
+class ActiveSessionToken {
+  - String tokenValue
+  - String userId
+  - String role
+  - Date expiry
+}
+
+class DeviceIdentityRegistry {
+  - String deviceId
+  - String deviceType
+  - String zone
+  - String status
+}
+
+class ThresholdRulebook {
+  - String metricType
+  - double thresholdValue
+  - String zone
+  - String ruleStatus
+}
+
+class AlertAndAuditLogDB {
+  - String alertId
+  - int severity
+  - String status
+  - Date timestamp
+  --
+  + log(alert : String) : void
+}
+
+class AnalyticsDB {
+  - String zone
+  - String metricType
+  - double aggregatedValue
+  - Date timestamp
+  --
+  + store(data : Data) : void
+}
+
+class SCEMASPlatformStatusDB {
+  - String subsystemStatus
+  - double uptime
+  - double latency
+  - double errorRate
+  - Date timestamp
+  --
+  + store(status : String) : void
+}
+
+class ApiTokenRegistry {
+  - String tokenHash
+  - String prefix
+  - String label
+  - String accountId
+  - Date expiresAt
+  - Date revokedAt
+  - Date lastUsedAt
+  --
+  + validate(tokenHash : String) : Boolean
+  + revoke(tokenId : String) : void
+}
+
+class AlertSubscriptionDB {
+  - String accountId
+  - String zone
+  - String metricType
+  - int minSeverity
+  - String webhookUrl
+  --
+  + matchesAlert(alert : AlertAndAuditLogDB) : Boolean
+}
+
+class HazardReportDB {
+  - String zone
+  - String category
+  - String description
+  - String status
+  - String contactEmail
+  - String reportedBy
+  - String reviewedBy
+  - String reviewNote
+  - Date createdAt
+  - Date resolvedAt
+  --
+  + store(report : HazardReport) : void
+  + updateStatus(reportId : String, status : String) : void
+}
+
+' ─────────────────────────────────────────
+' LAYOUT: force abstract classes in a row
+' ─────────────────────────────────────────
+
+TelemetryManagement -[hidden]right- AccessManagement
+AccessManagement -[hidden]right- AlertingManagement
+AlertingManagement -[hidden]right- DataDistributionManagement
+
+' force controllers below abstract classes
+TelemetryManagement -[hidden]down- TelemetryManager
+AccessManagement -[hidden]down- AccessManager
+AlertingManagement -[hidden]down- AlertingManager
+DataDistributionManagement -[hidden]down- DataDistributionManager
+
+' force controllers in a row
+TelemetryManager -[hidden]right- AccessManager
+AccessManager -[hidden]right- AlertingManager
+AlertingManager -[hidden]right- DataDistributionManager
+
+' force telemetry boundaries below TelemetryManager
+TelemetryManager -[hidden]down- IngestSensorStreams
+IngestSensorStreams -[hidden]right- ValidateTelemetryData
+ValidateTelemetryData -[hidden]right- MonitorIngestionHealth
+
+' force access boundaries below AccessManager
+AccessManager -[hidden]down- SignupForAccount
+SignupForAccount -[hidden]right- LoginToSCEMAS
+LoginToSCEMAS -[hidden]right- AuthorizeIoTDevices
+AuthorizeIoTDevices -[hidden]right- ModifyAccountDetails
+ModifyAccountDetails -[hidden]right- MonitorAccessStatus
+MonitorAccessStatus -[hidden]right- ManageSecurityPermissions
+
+' force alerting boundaries below AlertingManager
+AlertingManager -[hidden]down- DefineThresholdRules
+DefineThresholdRules -[hidden]right- HandleActiveAlerts
+HandleActiveAlerts -[hidden]right- DispatchAlertNotifications
+DispatchAlertNotifications -[hidden]right- ManageAlertSubscriptions
+
+' force data distribution boundaries below DataDistributionManager
+DataDistributionManager -[hidden]down- FilterAggregatedData
+FilterAggregatedData -[hidden]right- ProvidePublicAPI
+ProvidePublicAPI -[hidden]right- VisualizeCityMetrics
+VisualizeCityMetrics -[hidden]right- MonitorSCEMASPlatformStatus
+MonitorSCEMASPlatformStatus -[hidden]right- ReportEnvironmentalHazard
+
+' force entities at the bottom
+IndividualSensorReading -[hidden]right- TimeSeriesTelemetryDB
+TimeSeriesTelemetryDB -[hidden]right- AccountDB
+AccountDB -[hidden]right- UserInformation
+UserInformation -[hidden]right- ActiveSessionToken
+ActiveSessionToken -[hidden]right- DeviceIdentityRegistry
+DeviceIdentityRegistry -[hidden]right- ThresholdRulebook
+ThresholdRulebook -[hidden]right- AlertAndAuditLogDB
+AlertAndAuditLogDB -[hidden]right- AnalyticsDB
+AnalyticsDB -[hidden]right- SCEMASPlatformStatusDB
+SCEMASPlatformStatusDB -[hidden]right- ApiTokenRegistry
+ApiTokenRegistry -[hidden]right- AlertSubscriptionDB
+AlertSubscriptionDB -[hidden]right- HazardReportDB
+
+' ─────────────────────────────────────────
+' REALIZATION
+' ─────────────────────────────────────────
+
+TelemetryManager ..|> TelemetryManagement
+AccessManager ..|> AccessManagement
+AlertingManager ..|> AlertingManagement
+DataDistributionManager ..|> DataDistributionManagement
+
+' ─────────────────────────────────────────
+' TELEMETRY RELATIONSHIPS
+' ─────────────────────────────────────────
+
+TelemetryManager --> IngestSensorStreams
+TelemetryManager --> ValidateTelemetryData
+TelemetryManager --> MonitorIngestionHealth
+TelemetryManager --> TimeSeriesTelemetryDB
+TelemetryManager --> IndividualSensorReading
+TelemetryManager --> AccessManagement
+
+' ─────────────────────────────────────────
+' ACCESS RELATIONSHIPS
+' ─────────────────────────────────────────
+
+AccessManager --> SignupForAccount
+AccessManager --> LoginToSCEMAS
+AccessManager --> AuthorizeIoTDevices
+AccessManager --> AccountDB
+AccessManager --> UserInformation
+AccessManager --> ActiveSessionToken
+AccessManager --> DeviceIdentityRegistry
+AccessManager --> ModifyAccountDetails
+AccessManager --> MonitorAccessStatus
+AccessManager --> ManageSecurityPermissions
+AccessManager --> ApiTokenRegistry
+
+' ─────────────────────────────────────────
+' ALERTING RELATIONSHIPS
+' ─────────────────────────────────────────
+
+AlertingManager --> DefineThresholdRules
+AlertingManager --> HandleActiveAlerts
+AlertingManager --> DispatchAlertNotifications
+AlertingManager --> ThresholdRulebook
+AlertingManager --> AlertAndAuditLogDB
+AlertingManager --> IndividualSensorReading
+AlertingManager --> UserInformation
+AlertingManager --> ManageAlertSubscriptions
+AlertingManager --> AlertSubscriptionDB
+
+' ─────────────────────────────────────────
+' DATA DISTRIBUTION RELATIONSHIPS
+' ─────────────────────────────────────────
+
+DataDistributionManager --> FilterAggregatedData
+DataDistributionManager --> ProvidePublicAPI
+DataDistributionManager --> VisualizeCityMetrics
+DataDistributionManager --> AnalyticsDB
+DataDistributionManager --> IndividualSensorReading
+DataDistributionManager --> MonitorSCEMASPlatformStatus
+DataDistributionManager --> SCEMASPlatformStatusDB
+DataDistributionManager --> AccessManagement
+DataDistributionManager --> ReportEnvironmentalHazard
+DataDistributionManager --> UserInformation
+DataDistributionManager --> HazardReportDB
+
+' ─────────────────────────────────────────
+' CROSS-CONTROLLER SHARED
+' ─────────────────────────────────────────
+
+TimeSeriesTelemetryDB --> IndividualSensorReading
+AccountDB --> UserInformation
+ApiTokenRegistry --> AccountDB
+
+@enduml
