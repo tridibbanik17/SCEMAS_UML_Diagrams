@@ -1,0 +1,103 @@
+@startuml telemetrymanagementcontroller
+hide empty description
+
+skinparam state {
+  BackgroundColor<<init>> #F2F4F4
+  BorderColor<<init>> #7F8C8D
+  FontColor<<init>> #2C3E50
+
+  BackgroundColor<<ingest>> #E5F5E0
+  BorderColor<<ingest>> #27AE60
+  FontColor<<ingest>> #1E8449
+
+  BackgroundColor<<validate>> #FEF9E7
+  BorderColor<<validate>> #F1C40F
+  FontColor<<validate>> #7D6608
+
+  BackgroundColor<<persist>> #EBF5FB
+  BorderColor<<persist>> #2980B9
+  FontColor<<persist>> #154360
+
+  BackgroundColor<<aggregate>> #FDEDEC
+  BorderColor<<aggregate>> #CB4335
+  FontColor<<aggregate>> #78281F
+
+  BackgroundColor<<monitor>> #E8DAEF
+  BorderColor<<monitor>> #7D3C98
+  FontColor<<monitor>> #4A235A
+
+  BackgroundColor<<error>> #FADBD8
+  BorderColor<<error>> #E74C3C
+  FontColor<<error>> #641E16
+
+  StartColor black
+  EndColor black
+}
+
+state "Initialization" as INIT <<init>> {
+  state "LoadConfig" as LC <<init>>
+  state "ConnectBrokers" as CB <<init>>
+  LC --> CB : config loaded
+}
+
+state "IngestSensorStreams" as ING <<ingest>> {
+  state "ReceiveMQTTMessage" as RM <<ingest>>
+  state "ParseSchema" as PS <<ingest>>
+  RM --> PS : new message received
+}
+
+state "ValidateTelemetryData" as VAL <<validate>> {
+  state "CheckSchemaIntegrity" as CSI <<validate>>
+  state "CheckValueRanges" as CVR <<validate>>
+  state "CheckTimestamp" as CTS <<validate>>
+  CSI --> CVR : schema valid
+  CVR --> CTS : values valid
+}
+
+state "PersistValidatedData" as PER <<persist>> {
+  state "WriteToTimeSeriesDB" as WTS <<persist>>
+  state "StoreIndividualReading" as SIR <<persist>>
+  WTS --> SIR : write confirmed
+}
+
+state "AggregateData" as AGG <<aggregate>> {
+  state "ComputeZoneMetrics" as CZM <<aggregate>>
+  state "UpdateAnalyticsDB" as UAD <<aggregate>>
+  CZM --> UAD : aggregated values ready
+}
+
+state "MonitorIngestionHealth" as MON <<monitor>> {
+  state "TrackPipelineStatus" as TPS <<monitor>>
+  state "ReportHealthMetrics" as RHM <<monitor>>
+  TPS --> RHM : health updated
+}
+
+state "Error" as ERR <<error>> {
+  state "LogFailure" as LF <<error>>
+  state "AlertAdmin" as AA <<error>>
+  LF --> AA : failure recorded
+}
+
+[*] --> INIT : controller startup
+
+INIT --> ING : initialization complete
+INIT --> ERR : broker connection error
+
+ING --> VAL : telemetry batch received
+ING --> ERR : unparseable message
+
+VAL --> PER : validation success
+VAL --> ERR : invalid telemetry detected
+
+PER --> AGG : persistence complete
+PER --> ERR : database write failure
+
+AGG --> MON : aggregation successful
+AGG --> ERR : aggregation failure
+
+MON --> [*] : pipeline completed
+MON --> ERR : health anomaly detected
+
+ERR --> INIT : recovery: reinitialize
+
+@enduml
