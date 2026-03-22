@@ -1,0 +1,122 @@
+@startuml alertingmanagementcontroller
+hide empty description
+
+'──────────────────────────────────
+' COLOR SCHEMES
+'──────────────────────────────────
+skinparam state {
+  BackgroundColor<<init>> #F2F4F4
+  BorderColor<<init>> #7F8C8D
+  FontColor<<init>> #2C3E50
+
+  BackgroundColor<<define>> #FFFAD4
+  BorderColor<<define>> #F7DC6F
+  FontColor<<define>> #7D6608
+
+  BackgroundColor<<active>> #FDEDEC
+  BorderColor<<active>> #E74C3C
+  FontColor<<active>> #922B21
+
+  BackgroundColor<<notify>> #EBF5FB
+  BorderColor<<notify>> #3498DB
+  FontColor<<notify>> #1A5276
+
+  BackgroundColor<<subscribe>> #E8F8F5
+  BorderColor<<subscribe>> #1ABC9C
+  FontColor<<subscribe>> #0E6655
+
+  BackgroundColor<<log>> #EAF2F8
+  BorderColor<<log>> #2471A3
+  FontColor<<log>> #154360
+
+  BackgroundColor<<error>> #FDEBD0
+  BorderColor<<error>> #E67E22
+  FontColor<<error>> #7E5109
+
+  StartColor black
+  EndColor black
+}
+
+'──────────────────────────────────
+' MAIN LIFECYCLE
+'──────────────────────────────────
+
+state "Initializing" as INIT <<init>> {
+  state "ConnectAlertDB" as CAD <<init>>
+  state "LoadThresholdRules" as LTR <<init>>
+  CAD --> LTR : DB connected
+}
+
+state "Define Threshold Rules" as DTR <<define>> {
+  state "CreateRule" as CR <<define>>
+  state "ValidateRule" as VR <<define>>
+  state "StoreRulebook" as SR <<define>>
+  CR --> VR : rule created
+  VR --> SR : valid configuration
+  SR --> CR : modify
+}
+
+state "Manage Active Alerts" as MA <<active>> {
+  state "EvaluateTelemetry" as ET <<active>>
+  state "TriggerAlert" as TA <<active>>
+  state "AcknowledgeAlert" as AA <<active>>
+  state "ResolveAlert" as RA <<active>>
+  ET --> TA : threshold exceeded
+  TA --> AA : operator notified
+  AA --> RA : alert acknowledged/resolved
+}
+
+state "Manage Subscriptions" as MS <<subscribe>> {
+  state "LoadUserPreferences" as LUP <<subscribe>>
+  state "UpdateSubscriptions" as US <<subscribe>>
+  LUP --> US : preferences loaded
+  US --> LUP : confirmation
+}
+
+state "Dispatch Notifications" as DN <<notify>> {
+  state "PrepareAlertMsg" as PAM <<notify>>
+  state "SendNotifications" as SN <<notify>>
+  state "HandleFailedDelivery" as HFD <<notify>>
+  PAM --> SN : alerts formatted
+  SN --> HFD : on failure
+}
+
+state "Record Logs" as RL <<log>> {
+  state "WriteAlertLog" as WAL <<log>>
+  state "WriteAuditTrail" as WAT <<log>>
+  WAL --> WAT : event recorded
+}
+
+state "Error" as ERR <<error>> {
+  state "LogFailure" as LF <<error>>
+  state "NotifyAdmin" as NA <<error>>
+  LF --> NA : error escalation
+}
+
+'──────────────────────────────────
+' TRANSITIONS
+'──────────────────────────────────
+
+[*] --> INIT : controller startup
+
+INIT --> DTR : initialization complete
+INIT --> ERR : DB connection failed
+
+DTR --> MA : rules defined
+MA --> DN : alert triggered
+DN --> RL : notification dispatched
+RL --> MA : alert update received
+
+MA --> ERR : alert evaluation failure
+DTR --> ERR : invalid rule definition
+DN --> ERR : delivery failure
+
+MA --> MS : user modifies subscriptions
+MS --> DTR : admin updates thresholds
+MS --> MA : return to active monitoring
+
+RL --> [*] : all alerts archived successfully
+ERR --> INIT : recovery: reinitialize
+ERR --> [*] : unrecoverable system failure
+
+@enduml
