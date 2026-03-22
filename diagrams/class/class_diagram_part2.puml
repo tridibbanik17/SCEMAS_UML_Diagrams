@@ -1,0 +1,139 @@
+@startuml class_diagram_part2
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+
+' ─────────────────────────────────────────
+' ABSTRACT CLASS
+' ─────────────────────────────────────────
+
+abstract class AlertingManagement <<Abstract>> {
+  - String alertId
+  - int severity
+  --
+  + {abstract} triggerAlert(message : String) : void
+  + {abstract} resolveAlert(alertId : String) : void
+}
+
+' ─────────────────────────────────────────
+' CONCRETE CONTROLLER
+' ─────────────────────────────────────────
+
+class AlertingManager {
+  - String alertId
+  - int severity
+  --
+  + triggerAlert(message : String) : void
+  + resolveAlert(alertId : String) : void
+}
+
+' ─────────────────────────────────────────
+' REALIZATION
+' ─────────────────────────────────────────
+
+AlertingManager ..|> AlertingManagement
+
+' ─────────────────────────────────────────
+' BOUNDARIES - ALERTING
+' ─────────────────────────────────────────
+
+class DefineThresholdRules {
+  + defineRule() : void
+}
+
+class HandleActiveAlerts {
+  + displayAlerts() : void
+  + acknowledgeAlert() : void
+}
+
+class DispatchAlertNotifications {
+  + dispatch() : void
+}
+
+class ManageAlertSubscriptions {
+  + configureSubscription() : void
+  + updateSubscription() : void
+}
+
+' ─────────────────────────────────────────
+' ENTITIES - ALERTING
+' ─────────────────────────────────────────
+
+class IndividualSensorReading {
+  - String sensorId
+  - String metricType
+  - double value
+  - String zone
+  - Date timestamp
+}
+
+class UserInformation {
+  - String userId
+  - String username
+  - String email
+  - String role
+}
+
+class ThresholdRulebook {
+  - String metricType
+  - double thresholdValue
+  - String zone
+  - String ruleStatus
+}
+
+class AlertAndAuditLogDB {
+  - String alertId
+  - int severity
+  - String status
+  - Date timestamp
+  --
+  + log(alert : String) : void
+}
+
+class AlertSubscriptionDB {
+  - String accountId
+  - String zone
+  - String metricType
+  - int minSeverity
+  - String webhookUrl
+  --
+  + matchesAlert(alert : AlertAndAuditLogDB) : Boolean
+}
+
+' ─────────────────────────────────────────
+' LAYOUT
+' ─────────────────────────────────────────
+
+AlertingManagement -[hidden]down- AlertingManager
+
+AlertingManager -[hidden]down- DefineThresholdRules
+DefineThresholdRules -[hidden]right- HandleActiveAlerts
+HandleActiveAlerts -[hidden]right- DispatchAlertNotifications
+DispatchAlertNotifications -[hidden]right- ManageAlertSubscriptions
+
+IndividualSensorReading -[hidden]right- UserInformation
+UserInformation -[hidden]right- ThresholdRulebook
+ThresholdRulebook -[hidden]right- AlertAndAuditLogDB
+AlertAndAuditLogDB -[hidden]right- AlertSubscriptionDB
+
+' ─────────────────────────────────────────
+' ALERTING RELATIONSHIPS
+' ─────────────────────────────────────────
+
+AlertingManager --> DefineThresholdRules
+AlertingManager --> HandleActiveAlerts
+AlertingManager --> DispatchAlertNotifications
+AlertingManager --> ThresholdRulebook
+AlertingManager --> AlertAndAuditLogDB
+AlertingManager --> IndividualSensorReading
+AlertingManager --> UserInformation
+AlertingManager --> ManageAlertSubscriptions
+AlertingManager --> AlertSubscriptionDB
+
+@enduml

@@ -1,0 +1,231 @@
+@startuml class_diagram_part1
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+
+' ─────────────────────────────────────────
+' ABSTRACT CLASSES
+' ─────────────────────────────────────────
+
+abstract class TelemetryManagement <<Abstract>> {
+  - String deviceId
+  --
+  + {abstract} collectMetrics() : void
+  + {abstract} sendTelemetry() : void
+}
+
+abstract class AccessManagement <<Abstract>> {
+  - String userId
+  --
+  + {abstract} authenticate(credentials : Credentials) : boolean
+  + {abstract} authorize(resource : String) : boolean
+}
+
+' ─────────────────────────────────────────
+' CONCRETE CONTROLLERS
+' ─────────────────────────────────────────
+
+class TelemetryManager {
+  - String deviceId
+  --
+  + collectMetrics() : void
+  + sendTelemetry() : void
+}
+
+class AccessManager {
+  - String userId
+  --
+  + authenticate(credentials : Credentials) : boolean
+  + authorize(resource : String) : boolean
+}
+
+' ─────────────────────────────────────────
+' REALIZATION
+' ─────────────────────────────────────────
+
+TelemetryManager ..|> TelemetryManagement
+AccessManager ..|> AccessManagement
+
+' ─────────────────────────────────────────
+' BOUNDARIES - TELEMETRY
+' ─────────────────────────────────────────
+
+class IngestSensorStreams {
+  + submitSensorData() : void
+}
+
+class ValidateTelemetryData {
+  + validateData() : boolean
+}
+
+class MonitorIngestionHealth {
+  + displayHealthStatus() : void
+}
+
+' ─────────────────────────────────────────
+' BOUNDARIES - ACCESS
+' ─────────────────────────────────────────
+
+class SignupForAccount {
+  + signup() : void
+}
+
+class LoginToSCEMAS {
+  + login() : boolean
+}
+
+class AuthorizeIoTDevices {
+  + authorizeDevice() : boolean
+}
+
+class ModifyAccountDetails {
+  + modifyDetails() : void
+  + handleInvalidInput() : void
+}
+
+class MonitorAccessStatus {
+  + displayActiveSessions() : void
+  + displaySecurityFlags() : void
+}
+
+class ManageSecurityPermissions {
+  + assignRole() : void
+  + modifyPermissions() : void
+}
+
+' ─────────────────────────────────────────
+' ENTITIES - TELEMETRY
+' ─────────────────────────────────────────
+
+class IndividualSensorReading {
+  - String sensorId
+  - String metricType
+  - double value
+  - String zone
+  - Date timestamp
+}
+
+class TimeSeriesTelemetryDB {
+  - String sensorId
+  - String zone
+  - Date timestamp
+  --
+  + store(reading : IndividualSensorReading) : void
+}
+
+' ─────────────────────────────────────────
+' ENTITIES - ACCESS
+' ─────────────────────────────────────────
+
+class AccountDB {
+  - String email
+  - String username
+  - String password
+  - String roleAssignment
+  --
+  + save(user : UserInformation) : void
+}
+
+class UserInformation {
+  - String userId
+  - String username
+  - String email
+  - String role
+}
+
+class ActiveSessionToken {
+  - String tokenValue
+  - String userId
+  - String role
+  - Date expiry
+}
+
+class DeviceIdentityRegistry {
+  - String deviceId
+  - String deviceType
+  - String zone
+  - String status
+}
+
+class ApiTokenRegistry {
+  - String tokenHash
+  - String prefix
+  - String label
+  - String accountId
+  - Date expiresAt
+  - Date revokedAt
+  - Date lastUsedAt
+  --
+  + validate(tokenHash : String) : Boolean
+  + revoke(tokenId : String) : void
+}
+
+' ─────────────────────────────────────────
+' LAYOUT
+' ─────────────────────────────────────────
+
+TelemetryManagement -[hidden]right- AccessManagement
+TelemetryManagement -[hidden]down- TelemetryManager
+AccessManagement -[hidden]down- AccessManager
+TelemetryManager -[hidden]right- AccessManager
+
+TelemetryManager -[hidden]down- IngestSensorStreams
+IngestSensorStreams -[hidden]right- ValidateTelemetryData
+ValidateTelemetryData -[hidden]right- MonitorIngestionHealth
+
+AccessManager -[hidden]down- SignupForAccount
+SignupForAccount -[hidden]right- LoginToSCEMAS
+LoginToSCEMAS -[hidden]right- AuthorizeIoTDevices
+AuthorizeIoTDevices -[hidden]right- ModifyAccountDetails
+ModifyAccountDetails -[hidden]right- MonitorAccessStatus
+MonitorAccessStatus -[hidden]right- ManageSecurityPermissions
+
+IndividualSensorReading -[hidden]right- TimeSeriesTelemetryDB
+TimeSeriesTelemetryDB -[hidden]right- AccountDB
+AccountDB -[hidden]right- UserInformation
+UserInformation -[hidden]right- ActiveSessionToken
+ActiveSessionToken -[hidden]right- DeviceIdentityRegistry
+DeviceIdentityRegistry -[hidden]right- ApiTokenRegistry
+
+' ─────────────────────────────────────────
+' TELEMETRY RELATIONSHIPS
+' ─────────────────────────────────────────
+
+TelemetryManager --> IngestSensorStreams
+TelemetryManager --> ValidateTelemetryData
+TelemetryManager --> MonitorIngestionHealth
+TelemetryManager --> TimeSeriesTelemetryDB
+TelemetryManager --> IndividualSensorReading
+TelemetryManager --> AccessManagement
+
+' ─────────────────────────────────────────
+' ACCESS RELATIONSHIPS
+' ─────────────────────────────────────────
+
+AccessManager --> SignupForAccount
+AccessManager --> LoginToSCEMAS
+AccessManager --> AuthorizeIoTDevices
+AccessManager --> AccountDB
+AccessManager --> UserInformation
+AccessManager --> ActiveSessionToken
+AccessManager --> DeviceIdentityRegistry
+AccessManager --> ModifyAccountDetails
+AccessManager --> MonitorAccessStatus
+AccessManager --> ManageSecurityPermissions
+AccessManager --> ApiTokenRegistry
+
+' ─────────────────────────────────────────
+' CROSS-CONTROLLER SHARED
+' ─────────────────────────────────────────
+
+TimeSeriesTelemetryDB --> IndividualSensorReading
+AccountDB --> UserInformation
+ApiTokenRegistry --> AccountDB
+
+@enduml

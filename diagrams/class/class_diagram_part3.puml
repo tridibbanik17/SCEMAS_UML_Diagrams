@@ -1,0 +1,163 @@
+@startuml class_diagram_part3
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+
+' ─────────────────────────────────────────
+' ABSTRACT CLASS
+' ─────────────────────────────────────────
+
+abstract class DataDistributionManagement <<Abstract>> {
+  - String channelId
+  --
+  + {abstract} distribute(data : Data) : void
+  + {abstract} subscribe(endpoint : Endpoint) : void
+  + {abstract} unsubscribe(endpoint : Endpoint) : void
+}
+
+abstract class AccessManagement <<Abstract>> {
+  - String userId
+  --
+  + {abstract} authenticate(credentials : Credentials) : boolean
+  + {abstract} authorize(resource : String) : boolean
+}
+
+' ─────────────────────────────────────────
+' CONCRETE CONTROLLER
+' ─────────────────────────────────────────
+
+class DataDistributionManager {
+  - String channelId
+  --
+  + distribute(data : Data) : void
+  + subscribe(endpoint : Endpoint) : void
+  + unsubscribe(endpoint : Endpoint) : void
+}
+
+' ─────────────────────────────────────────
+' REALIZATION
+' ─────────────────────────────────────────
+
+DataDistributionManager ..|> DataDistributionManagement
+
+' ─────────────────────────────────────────
+' BOUNDARIES - DATA DISTRIBUTION
+' ─────────────────────────────────────────
+
+class FilterAggregatedData {
+  + filterData() : void
+}
+
+class ProvidePublicAPI {
+  + handleAPIRequest() : void
+}
+
+class VisualizeCityMetrics {
+  + displayMetrics() : void
+}
+
+class MonitorSCEMASPlatformStatus {
+  + displayPlatformHealth() : void
+  + displaySecurityStatus() : void
+}
+
+class ReportEnvironmentalHazard {
+  + submitReport() : void
+  + reviewReport() : void
+}
+
+' ─────────────────────────────────────────
+' ENTITIES - DATA DISTRIBUTION
+' ─────────────────────────────────────────
+
+class IndividualSensorReading {
+  - String sensorId
+  - String metricType
+  - double value
+  - String zone
+  - Date timestamp
+}
+
+class UserInformation {
+  - String userId
+  - String username
+  - String email
+  - String role
+}
+
+class AnalyticsDB {
+  - String zone
+  - String metricType
+  - double aggregatedValue
+  - Date timestamp
+  --
+  + store(data : Data) : void
+}
+
+class SCEMASPlatformStatusDB {
+  - String subsystemStatus
+  - double uptime
+  - double latency
+  - double errorRate
+  - Date timestamp
+  --
+  + store(status : String) : void
+}
+
+class HazardReportDB {
+  - String zone
+  - String category
+  - String description
+  - String status
+  - String contactEmail
+  - String reportedBy
+  - String reviewedBy
+  - String reviewNote
+  - Date createdAt
+  - Date resolvedAt
+  --
+  + store(report : HazardReport) : void
+  + updateStatus(reportId : String, status : String) : void
+}
+
+' ─────────────────────────────────────────
+' LAYOUT
+' ─────────────────────────────────────────
+
+DataDistributionManagement -[hidden]right- AccessManagement
+DataDistributionManagement -[hidden]down- DataDistributionManager
+
+DataDistributionManager -[hidden]down- FilterAggregatedData
+FilterAggregatedData -[hidden]right- ProvidePublicAPI
+ProvidePublicAPI -[hidden]right- VisualizeCityMetrics
+VisualizeCityMetrics -[hidden]right- MonitorSCEMASPlatformStatus
+MonitorSCEMASPlatformStatus -[hidden]right- ReportEnvironmentalHazard
+
+IndividualSensorReading -[hidden]right- UserInformation
+UserInformation -[hidden]right- AnalyticsDB
+AnalyticsDB -[hidden]right- SCEMASPlatformStatusDB
+SCEMASPlatformStatusDB -[hidden]right- HazardReportDB
+
+' ─────────────────────────────────────────
+' DATA DISTRIBUTION RELATIONSHIPS
+' ─────────────────────────────────────────
+
+DataDistributionManager --> FilterAggregatedData
+DataDistributionManager --> ProvidePublicAPI
+DataDistributionManager --> VisualizeCityMetrics
+DataDistributionManager --> AnalyticsDB
+DataDistributionManager --> IndividualSensorReading
+DataDistributionManager --> MonitorSCEMASPlatformStatus
+DataDistributionManager --> SCEMASPlatformStatusDB
+DataDistributionManager --> AccessManagement
+DataDistributionManager --> ReportEnvironmentalHazard
+DataDistributionManager --> UserInformation
+DataDistributionManager --> HazardReportDB
+
+@enduml

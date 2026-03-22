@@ -3,6 +3,7 @@ skinparam linetype ortho
 skinparam nodesep 60
 skinparam ranksep 80
 skinparam classAttributeIconSize 0
+skinparam backgroundColor White
 skinparam class {
   BackgroundColor White
   BorderColor Black
