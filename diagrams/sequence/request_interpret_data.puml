@@ -1,23 +1,40 @@
 @startuml
 title Request and Interpret Environmental Data
 
-actor UsersAndDevs
-participant "Access\nManagement" as AMC
-participant "Provide\nPublic\nAPI" as PPA
-participant "Data\nDistribution\nManagement" as DDM
+actor "Public User /\nThird-Party Developer" as Client
+participant "Functional Client\n(Digital Signage)" as FC
+participant "Provide\nPublic API" as API
+participant "Data Distribution\nManagement" as DDM
 database "Analytics\nDB" as DB
 
-UsersAndDevs -> UsersAndDevs : Enter User Info
-UsersAndDevs -> AMC: Login to Account
-AMC -> AMC : Validate Account
-AMC -> PPA: Access Public API
+Client -> FC : Open SCEMAS Display
+FC -> API : GET /api/v1/zones/aqi
+API -> API : Rate Limit Check
 
-group Accessing Data
-    PPA -> DDM : Request Data
-    DDM -> DB : Retrieve Data
-    DB --> DDM : Returns Data
-    DDM --> PPA : Displays Requested Data
-    PPA --> UsersAndDevs : Interprets Data
+group Rate Limit Passed
+    API -> DDM : Request Aggregated Data
+    DDM -> DB : Query Latest Aggregates
+    DB --> DDM : Aggregated Zone Metrics
+    DDM -> DDM : Compute AQI per Zone
+    DDM -> DDM : Strip Sensitive Fields\n(sensor IDs, device metadata)
+    DDM --> API : ZoneAQI[]
+    API --> FC : 200 OK + JSON Payload
+    FC --> Client : Display Zone AQI Cards
 end
+
+group Rate Limit Exceeded
+    API --> FC : 429 Too Many Requests
+    FC --> Client : Display Error Message
+end
+
+note over API,DB
+  same aggregate-only flow also backs:
+  - GET /api/v1/zones/summary
+  - GET /api/v1/zones/{zoneId}/current
+  - GET /api/v1/zones/{zoneId}/history
+  - GET /api/v1/rankings
+  - GET /api/v1/metrics
+  - GET /api/v1/status
+end note
 
 @enduml
