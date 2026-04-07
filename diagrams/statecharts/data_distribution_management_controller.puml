@@ -26,6 +26,10 @@ skinparam state {
   BorderColor<<error>> #E67E22
   FontColor<<error>> #7E5109
 
+  BackgroundColor<<shutdown>> #F4F6F7
+  BorderColor<<shutdown>> #717D7E
+  FontColor<<shutdown>> #2C3E50
+
   StartColor black
   EndColor black
 }
@@ -37,13 +41,18 @@ skinparam state {
 state "Initializing" as INIT <<init>> {
   state "ConnectDataSources" as CDS <<init>>
   state "LoadAnalyticsDB" as LDB <<init>>
+  [*] --> CDS
   CDS --> LDB : sources available
 }
 
 state "Authenticating" as AUTH <<auth>> {
   state "ValidateToken" as VT <<auth>>
   state "AuthorizeRole" as AR <<auth>>
+  state "RetryCount" as RC <<auth>>
+  [*] --> VT
   VT --> AR : token valid
+  VT --> RC : token invalid
+  RC --> VT : retry limit not reached
 }
 
 state "Distributing" as DIST <<distribute>> {
@@ -52,30 +61,37 @@ state "Distributing" as DIST <<distribute>> {
     state "IngestSensorReadings" as ISR <<ingest>>
     state "AggregateMetrics" as AM <<ingest>>
     state "StoreToAnalyticsDB" as STA <<ingest>>
+    [*] --> ISR
     ISR --> AM : raw data received
     AM --> STA : aggregation complete
     STA --> ISR : await next batch
+    STA --> [*] : shutdown signal received
   }
 
   state "OperatorService" as OPS <<distribute>> {
     state "FilterAggregatedData" as FAD <<distribute>>
     state "VisualizeCityMetrics" as VCM <<distribute>>
+    [*] --> FAD
     FAD --> VCM : filtered results ready
     VCM --> FAD : new filter query
+    FAD --> ERR : operator service failure
   }
 
   state "PublicAPIService" as API <<distribute>> {
     state "HandleAPIRequest" as HAR <<distribute>>
     state "RateLimitCheck" as RLC <<distribute>>
     state "ReturnAggregatedData" as RAD <<distribute>>
+    [*] --> HAR
     HAR --> RLC : request received
     RLC --> RAD : within rate limit
+    RLC --> ERR : rate limit exceeded
   }
 
   state "PlatformMonitoring" as MON <<monitor>> {
     state "CollectHealthMetrics" as CHM <<monitor>>
     state "UpdateStatusDB" as USD <<monitor>>
     state "DisplayDashboard" as DD <<monitor>>
+    [*] --> CHM
     CHM --> USD : metrics collected
     USD --> DD : status persisted
     DD --> CHM : polling interval elapsed
@@ -90,8 +106,17 @@ state "Error" as ERR <<error>> {
   state "LogFailure" as LF <<error>>
   state "NotifyAdmin" as NA <<error>>
   state "AttemptRecovery" as REC <<error>>
+  [*] --> LF
   LF --> NA : failure logged
   NA --> REC : admin notified
+}
+
+state "ShuttingDown" as SHUT <<shutdown>> {
+  state "FlushBuffers" as FB <<shutdown>>
+  state "CloseConnections" as CC <<shutdown>>
+  [*] --> FB
+  FB --> CC : buffers flushed
+  FB --> CC : flush failed (force close)
 }
 
 ' ──────────────────────────────────
@@ -104,15 +129,18 @@ INIT --> AUTH : initialization complete
 INIT --> ERR : data source unavailable
 
 AUTH --> DIST : authentication successful
-AUTH --> ERR : authentication failed
+AUTH --> ERR : retry limit exceeded
 
 DIST --> AUTH : session expired
 DIST --> ERR : distribution failure
+DIST --> SHUT : shutdown signal received
 
 ERR --> INIT : recovery: reinitialize
-ERR --> [*] : unrecoverable failure
+ERR --> SHUT : unrecoverable failure
 
-RLC --> ERR : rate limit exceeded
 REC --> INIT : retry initialization
+
+SHUT --> [*] : shutdown complete
+SHUT --> [*] : shutdown failed
 
 @enduml
